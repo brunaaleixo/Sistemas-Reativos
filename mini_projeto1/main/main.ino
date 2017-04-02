@@ -1,10 +1,13 @@
 #include <SPI.h>
 #include <SD.h>
+#include <string.h>
 #include "pindefs.h"
 #include "preset.h"
 #include <MFRC522.h>
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
+int presets[5];
+int rfidPresent = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -15,8 +18,12 @@ void setup() {
 
 void loop() {
   handleRFID();
-  handleTemperature();
-  handleLighting();
+
+  if (rfidPresent) {
+    Serial.print("rfid identified\n");
+    handleTemperature();
+    handleLighting();
+  }
 }
 
 void handleRFID() {
@@ -32,13 +39,27 @@ void handleRFID() {
   
   //Mostra UID na serial
   Serial.print("UID da tag :");
-  String conteudo = "";
-  byte letra;
+  String content = "";
+  
   for (byte i = 0; i < mfrc522.uid.size; i++) {
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-    conteudo.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-    conteudo.concat(String(mfrc522.uid.uidByte[i], HEX));
+    Serial.println(String(mfrc522.uid.uidByte[i], HEX));
+    if (i != 0) content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+    content.concat(String(mfrc522.uid.uidByte[i], HEX));
+  }
+
+  int i, j;
+  for (i=0; i<NUM_IDS; i++) {
+    if (strncmp(data[i].id.c_str(), content.c_str(), 8) == 0) {
+      for (j=0; j<5; j++) {
+        presets[j] = data[i].presets[j];
+        Serial.print(presets[j]);
+        Serial.print(" ");
+      }
+      rfidPresent = true;
+      break;
+    } else {
+      rfidPresent = false;
+    }
   }
 }
 
@@ -47,10 +68,10 @@ void handleTemperature() {
   float millivoltage = (temperatureReading / 1024.0) * 5000;
   float temperature = millivoltage / 10;
 
-  if (temperature < data[MIN_TEMP] || temperature > data[MAX_TEMP]) {
+  if (temperature < presets[MIN_TEMP] || temperature > presets[MAX_TEMP]) {
     // liga ar
-    Serial.println((String) temperature);
   }
+  Serial.println((String) temperature);
 }
 
 void handleLighting() {
@@ -60,8 +81,8 @@ void handleLighting() {
   lightReading = analogRead(LIGHT_SENSOR);
   light = map(lightReading, 0, 1023, 0, 100);
 
-  if (light < data[MIN_LIGHT] || light > data[MAX_LIGHT]) {
-    analogWrite(LED, data[IDEAL_LIGHT]);
+  if (light < presets[MIN_LIGHT]) {
+    analogWrite(LED, presets[IDEAL_LIGHT]);
   } else {
     analogWrite(LED, LOW);
   }
