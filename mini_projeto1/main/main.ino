@@ -14,13 +14,13 @@ void setup() {
   SPI.begin();
   mfrc522.PCD_Init();
   pinMode(LED, OUTPUT);
+  pinMode(AR, OUTPUT);
 }
 
 void loop() {
   handleRFID();
 
   if (rfidPresent) {
-    Serial.print("rfid identified\n");
     handleTemperature();
     handleLighting();
   }
@@ -36,11 +36,11 @@ void handleRFID() {
   if (!mfrc522.PICC_ReadCardSerial()) {
     return;
   }
-  
+
   //Mostra UID na serial
   Serial.print("UID da tag :");
   String content = "";
-  
+
   for (byte i = 0; i < mfrc522.uid.size; i++) {
     Serial.println(String(mfrc522.uid.uidByte[i], HEX));
     if (i != 0) content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
@@ -69,7 +69,9 @@ void handleTemperature() {
   float temperature = millivoltage / 10;
 
   if (temperature < presets[MIN_TEMP] || temperature > presets[MAX_TEMP]) {
-    // liga ar
+    digitalWrite(AR, HIGH);
+  } else {
+    digitalWrite(AR, LOW);
   }
   Serial.println((String) temperature);
 }
