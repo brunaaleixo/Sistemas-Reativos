@@ -7,7 +7,7 @@ void initialize() {
   timer_set(2000);
   button_listen(BUTTON1);
   button_listen(BUTTON2);
-
+  
  initialize_leds();
 }
 
@@ -23,16 +23,21 @@ void initialize_leds() {
   digitalWrite(LED4, HIGH);
 }
 
-void button_changed (int button, int v) {
+void button_changed (int button) {
+  int updatedState;
+
   switch (button + BUTTON1) {
     case BUTTON1:
-      digitalWrite(LED1, LOW);
+      updatedState = digitalRead(LED1) ? LOW : HIGH;
+      digitalWrite(LED1, updatedState);
       break;
     case BUTTON2:
-      digitalWrite(LED2, LOW);
+      updatedState = digitalRead(LED2) ? LOW : HIGH;
+      digitalWrite(LED2, updatedState);
       break;
     case BUTTON3:
-      digitalWrite(LED3, LOW);
+      updatedState = digitalRead(LED3) ? LOW : HIGH;
+      digitalWrite(LED3, updatedState);
       break;
   }
 }
