@@ -1,8 +1,8 @@
 
 
-dev_addr = 0x69 --104
+dev_addr = 0x68 --104
 bus = 0
-sda, scl = 9, 2
+sda, scl = 3, 4
    
 function init_I2C()
   i2c.setup(bus, sda, scl, i2c.SLOW)    
@@ -69,13 +69,13 @@ end
 
 function check_MPU(dev_addr)
    print("")
-   status_MPU(0x69)
+   status_MPU(0x68)
    read_reg_MPU(117) --Register 117 – Who Am I - 0x75
-   if string.byte(c, 1)==105 then print(" MPU6050 Device answered OK!")
-   else print("  Check Device - MPU6050 NOT available!")
+   if string.byte(c, 1) == 104 then print(" MPU6050 Device answered OK!")
+   else print("  Check Device - MPU6050 NOT available!",c,string.byte(c, 1))
         return
    end
-   read_reg_MPU(107) --Register 107 – Power Management 1-0x6b
+   read_reg_MPU(107) --Register 107 �� Power Management 1-0x6b
    if string.byte(c, 1)==64 then print(" MPU6050 in SLEEP Mode !")
    else print(" MPU6050 in ACTIVE Mode !")
    end
@@ -85,7 +85,7 @@ end
 
 ---test program
 init_I2C()
-check_MPU(0x69)
+check_MPU(0x68)
 init_MPU(0x6B,0)
 
 read_MPU_raw()
