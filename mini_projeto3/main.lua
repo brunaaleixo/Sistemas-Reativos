@@ -1,6 +1,6 @@
+local x, y = love.graphics.getDimensions()
 
-x, y = love.graphics.getDimensions()
-function initializeCar() 
+function initializeCar()
    car = {
      x = x/2 - carWidth/2,
      y = y/2 - carHeight/2,
@@ -10,43 +10,51 @@ function initializeCar()
    }
 end
 
-local ANGACCEL      = 4
-local ACCELERATION  = 4
+function initializeJoystick()
+   mqtt = require("mqtt_library")
+
+   updateDirection = function(topic, msg)
+      if topic == "up" then
+         joystick.acceleration = msg
+      elseif topic == "down" then
+         joystick.acceleration = -msg
+      elseif topic == "left" then
+         joystick.rotation = -msg
+      else
+         joystick.rotation = msg
+      end
+   end
+
+   local __joystick = mqtt.client.create("127.0.0.1", 1883, updateDirection)
+
+   __joystick:connect("love")
+   __joystick:subscribe({"up", "down", "left", "right"})
+
+   joystick.joystick = __joystick
+end
 
 function love.update(dt)
-    local increment = ACCELERATION == 0 and 0.2 or ACCELERATION*0.02
-    ACCELERATION = ACCELERATION + increment > 10 and 10 or ACCELERATION + increment
+   local increment = joystick.acceleration == 0 and 0.2 or joystick.acceleration
+   ACCELERATION = ACCELERATION + increment > 10 and 10 or ACCELERATION + increment
 
    print("dt", dt)
    print("xvel", car.xvel)
    print("yvel", car.yvel)
    print("rotation", car.rotation)
 
-   
+   car.rotation = joystick.rotation
 
-   if love.keyboard.isDown"right" then
-    -- rotate clockwise
-    car.rotation = car.rotation + ANGACCEL*dt
+   car.xvel = car.xvel + ACCELERATION*dt * math.cos(car.rotation)
+   if (car.rotation == 0) then
+     car.yvel = car.yvel + ACCELERATION*dt
+   elseif then
+     car.yvel = car.yvel + ACCELERATION*dt * math.abs(math.sin(car.rotation))
    end
-   if love.keyboard.isDown"left" then
-    -- rotate counter-clockwise
-    car.rotation = car.rotation - ANGACCEL*dt
-   end
-   if love.keyboard.isDown"down" then
-    -- decelerate / accelerate backwards
 
-      car.xvel = car.xvel - ACCELERATION*dt * math.cos(car.rotation)
-      car.yvel = car.yvel - ACCELERATION*dt * math.abs(math.sin(car.rotation))
+   if (car.rotation < 0 and car.xvel > 0) or (car.rotation > 0 and car.xvel < 0) then
+      car.xvel = -car.xvel
    end
-   if love.keyboard.isDown"up" then
-      -- accelerate
-      car.xvel = car.xvel + ACCELERATION*dt * math.cos(car.rotation)
-      if (car.rotation < 0 and car.xvel > 0) or (car.rotation > 0 and car.xvel < 0) then
-          car.xvel = -car.xvel
-      end
-      
-      car.yvel = car.yvel + ACCELERATION*dt * math.abs(math.sin(car.rotation))
-   end
+
    car.x = car.x + car.xvel*dt
 
    car.xvel = car.xvel * 0.99
@@ -65,6 +73,8 @@ end
 
 
 function love.load()
+   ACCELERATION = 4
+   ANGACCEL = 4
    inclination = 0
    speed = 0
    dy = 0
@@ -76,4 +86,9 @@ function love.load()
    carWidth = carImage:getWidth()
    carHeight = carImage:getHeight()
    initializeCar()
+   joystick = {
+      acceleration = 0,
+      rotation = 0,
+   }
+   initializeJoystick()
 end
