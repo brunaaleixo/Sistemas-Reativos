@@ -3,7 +3,7 @@
 dev_addr = 0x68 --104
 bus = 0
 sda, scl = 3, 4
-   
+
 function init_I2C()
   i2c.setup(bus, sda, scl, i2c.SLOW)    
 end
@@ -33,6 +33,26 @@ function read_reg_MPU(reg)
   return c
 end
 
+local function roundToFirstDecimal(num)
+  return math.floor(num * 10) / 10
+end
+
+function get_direction()
+  if (Ay >= 3) then
+    print("Turn left. Intensity:"..4-Ay)
+  elseif (Ay > 0.1) then
+    print("Turn right. Intensity:"..Ay)
+  end
+end
+
+function get_acceleration()
+  if (Ax >= 3) then
+    print("Speed up. Intensity:"..4-Ax)
+  elseif (Ax > 0.2) then
+    print("Slow down. Intensity:"..Ax)
+  end
+end
+
 function read_MPU_raw()
   i2c.start(bus)
   i2c.address(bus, dev_addr, i2c.TRANSMITTER)
@@ -46,13 +66,15 @@ function read_MPU_raw()
   Ax=bit.lshift(string.byte(c, 1), 8) + string.byte(c, 2)
   Ay=bit.lshift(string.byte(c, 3), 8) + string.byte(c, 4)
   Az=bit.lshift(string.byte(c, 5), 8) + string.byte(c, 6)
-  Gx=bit.lshift(string.byte(c, 9), 8) + string.byte(c, 10)
-  Gy=bit.lshift(string.byte(c, 11), 8) + string.byte(c, 12)
-  Gz=bit.lshift(string.byte(c, 13), 8) + string.byte(c, 14)
+
+  Ax=roundToFirstDecimal((Ax-AXoff)/16384)
+  Ay=roundToFirstDecimal((Ay-AYoff)/16384)
+  Az=roundToFirstDecimal((Az-AZoff)/16384)
+
+  get_direction()
+  get_acceleration()
 
   print("Ax:"..Ax.."     Ay:"..Ay.."      Az:"..Az)
-  print("Gx:"..Gx.."   Gy:"..Gy.."   Gz:"..Gz)
-  print("\nTempH: "..string.byte(c, 7).." TempL: "..string.byte(c, 8).."\n")
 
   return c, Ax, Ay, Az, Gx, Gy, Gz
 end
@@ -91,4 +113,3 @@ init_MPU(0x6B,0)
 read_MPU_raw()
 
 tmr.alarm(0, 1000, 1, function() read_MPU_raw() end)
-tmr.stop(0)
