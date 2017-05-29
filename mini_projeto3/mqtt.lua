@@ -9,7 +9,7 @@ end
 local function conmqtt(tmr)
    print(hasconnected)
    if not hasconnected then
-      client:connect("192.168.123.108", 1234, 0)
+      client:connect("192.168.123.112", 1234, 0)
    else
       tmr:stop()
    end
@@ -17,7 +17,7 @@ end
 
 local function initStation()
    wifi.setmode(wifi.STATION)
-   wifi.sta.config("PCT", "p35e97d72r29o")
+   wifi.sta.config("", "")
    tmr.create():alarm(200, tmr.ALARM_AUTO, station)
 end
 

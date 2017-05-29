@@ -15,17 +15,17 @@ function initializeJoystick()
 
    updateDirection = function(topic, msg)
       if topic == "up" then
-         joystick.acceleration = msg
+         joystick.acceleration = tonumber(msg)
       elseif topic == "down" then
-         joystick.acceleration = -msg
+         joystick.acceleration = -tonumber(msg)
       elseif topic == "left" then
-         joystick.rotation = -msg
+         joystick.rotation = -tonumber(msg)
       else
-         joystick.rotation = msg
+         joystick.rotation = tonumber(msg)
       end
    end
 
-   local __joystick = mqtt.client.create("127.0.0.1", 1883, updateDirection)
+   local __joystick = mqtt.client.create("127.0.0.1", 1234, updateDirection)
 
    __joystick:connect("love")
    __joystick:subscribe({"up", "down", "left", "right"})
@@ -33,13 +33,29 @@ function initializeJoystick()
    joystick.joystick = __joystick
 end
 
+function handlemsg()
+   joystick.acceleration = 0
+   joystick.joystick:handler()
+end
+
 function love.update(dt)
+   handlemsg()
    if joystick.acceleration ~= 0 then
     local increment = joystick.acceleration
-    ACCELERATION = ACCELERATION + increment > 10 and 10 or ACCELERATION + increment
+    ACCELERATION = ACCELERATION + increment > 6 and 6 or ACCELERATION + increment
+
+    if ACCELERATION < -6 then
+       ACCELERATION = -6
+    end
+
    end
 
    -- Determina a velocidade no eixo x
+   if car.rotation > 0 then
+      car.xvel = car.xvel + 0.75
+   elseif car.rotation < 0 then
+      car.xvel = car.xvel - 0.75
+   end
    car.xvel = car.xvel + ACCELERATION*dt * math.cos(car.rotation)
    if (car.rotation < 0 and car.xvel > 0) or (car.rotation > 0 and car.xvel < 0) then
       car.xvel = -car.xvel
@@ -47,7 +63,6 @@ function love.update(dt)
 
    -- Determina a posição no eixo x do carro
    car.x = car.x + car.xvel*dt
-
 
    -- Obtem a rotação do carro
    car.rotation = joystick.rotation
@@ -66,17 +81,27 @@ function love.update(dt)
 
    -- Atualiza a posição do background de acordo com a velocidade no eixo y
    dy = math.abs(dy + car.yvel) > road:getHeight() and 0 or dy + car.yvel
-
+   collectgarbage()
 end
 
 function love.draw()
-   -- Desenha uma imagem de uma estrada 3 vezes (posição das imagens é atualizada 
+   -- Desenha uma imagem de uma estrada 3 vezes (posição das imagens é atualizada
    -- de acordo com a velocidade no eixo y para criar uma ilusão de movimento)
    love.graphics.draw(road, 0, dy)
    love.graphics.draw(road, 0, -y + dy)
    love.graphics.draw(road, 0, y + dy)
 
-   -- Desenha o carro
+   -- Hitbox & desenha o carro
+   if car.x < 107 then
+      car.x = 107
+   elseif car.x > (x - 107) then
+      car.x = (x - 107)
+   end
+   if car.y < 100 then
+      car.y = 100
+   elseif car.y >  (y - 100) then
+      car.y = (y - 100)
+   end
    love.graphics.draw(carImage, car.x, car.y, math.rad(car.rotation), 0.5)
 end
 
