@@ -70,7 +70,7 @@ function love.update(dt)
    -- Determina a velocidade do carro no eixo y baseado na sua rotação
    if (car.rotation == 0) then
      car.yvel = car.yvel + ACCELERATION*dt
-   elseif then
+   else
      car.yvel = car.yvel + ACCELERATION*dt * math.abs(math.sin(car.rotation))
    end
 
