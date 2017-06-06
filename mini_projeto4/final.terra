@@ -1,0 +1,76 @@
+#include "/home/terra/TerraNG/terra/TerraNet.defs"
+
+#define BROAD 1
+#define DATA 2
+
+var ushort nodeId = getNodeId();
+
+pktype usrMsg from radioMsg with
+        var ubyte[4]  d8;
+        var ushort[4] d16;
+        var ulong[2]  d32;
+end
+
+var usrMsg sndData;
+var usrMsg recData;
+var usrMsg tempData;
+var usrMsg msgRadio;
+
+var ubyte stat;
+
+tempData.source = nodeId;
+sndData.source = nodeId;
+sndData.d32[0] = 0;
+
+var ushort pai = 0;
+
+par do
+        loop do
+                if nodeId == 11 then
+                        pai = 1;
+                        sndData.type = BROAD;
+                        sndData.target = BROADCAST;
+                        emit SEND(sndData);
+                        await SEND_DONE;                
+                else
+                        recData = await RECEIVE;
+                        if recData.type == BROAD then
+                                pai = recData.source;
+                                sndData.type = BROAD;
+                                sndData.target = BROADCAST;
+                                emit SEND(sndData);
+                                await SEND_DONE;
+                        end
+                end
+        end
+with
+        loop do
+                await 10s;
+                if pai != 0 then
+                        emit REQ_TEMP();
+                        tempData.d16[0] = await TEMP;
+                        tempData.type = DATA;
+                        tempData.target = pai;
+                        stat = qPut(tempData);
+                end
+        end
+with
+        loop do
+                recData = await RECEIVE(DATA);
+                recData.target = pai;
+                stat = qPut(recData);
+        end
+with
+        loop do
+                loop do
+                        if qSize() != 0 then
+                                stat = qGet(msgRadio);
+                                emit SEND(msgRadio);
+                                await SEND_DONE;
+                        else
+                                break;
+                        end
+                end
+        await Q_READY;
+        end
+end
