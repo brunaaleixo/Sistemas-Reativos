@@ -43,7 +43,7 @@ else
 end
 
 par do
-        await (cont*500)ms;
+        await ((cont*500) + random()%200) ms;
         loop do
                 await 10s;
                 emit REQ_TEMP();
