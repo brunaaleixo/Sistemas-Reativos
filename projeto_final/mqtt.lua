@@ -10,6 +10,7 @@ local function conmqtt(tmr)
       client:connect("", 1883, 0)
    else
       tmr:stop()
+      carSetup()
    end
 end
 
@@ -30,6 +31,12 @@ local function initMQTT(timer)
    end
 end
 
+function subscribe(channel)
+   if not client:subscribe(channel) then
+      print("error while subscribing to channel " .. channel )
+   end
+end
+
 function publish(channel, msg)
    local callback = function(client)
       print("message sent")
@@ -38,4 +45,5 @@ function publish(channel, msg)
 end
 
 initStation()
-tmr.create():alarm(1000, tmr.ALARM_AUTO, initMQTT)
+tmr.create():alarm(1000, tmr.ALARM_SINGLE, initMQTT)
+
