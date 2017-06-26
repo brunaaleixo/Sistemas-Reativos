@@ -1,26 +1,29 @@
-trig = 7 -- D7
-echo = 8 -- D8
+local start = 0
+local finish = 0
 
-gpio.mode(trig, gpio.OUTPUT)
-gpio.mode(echo, gpio.INT)
+gpio.mode(7, gpio.OUTPUT)
+gpio.mode(8, gpio.INT)
 
-function echocb(level, when)
-   print(level, when)
-   if level == 1 then
-      start = when
-      gpio.trig(echo, "down")
-   else
-      finish = when
-   end
+function interruptUP(level, when)
+   start_time = tmr.now()
+   print("START " .. start_time)
+   gpio.trig(8,  "down", interruptDOWN)
 end
 
-function measure()
-   gpio.trig(echo, "up", echocb)
-   gpio.write(trig, gpio.HIGH)
-   tmr.delay(100)
-   gpio.write(trig, gpio.LOW)
-   tmr.delay(100000)
-   print(((finish - start)/2)/29.1 .. " cm")
+function interruptDOWN(level, when)
+   finish = tmr.now()
+   print("FINISH " .. finish)
+   gpio.trig(8, "up")
+   print(((finish - start_time)/5800))
+   tmr.create():alarm(1500, tmr.ALARM_SINGLE, pulse)
 end
 
-tmr.create():alarm(10, tmr.ALARM_AUTO, measure)
+function pulse()
+   gpio.trig(8, "up", interruptUP)
+   gpio.write(7, gpio.HIGH)
+   tmr.delay(10)
+   gpio.write(7, gpio.LOW)
+   tmr.alarm(0, 200, tmr.ALARM_SINGLE, interruptDOWN)
+end
+
+pulse()
