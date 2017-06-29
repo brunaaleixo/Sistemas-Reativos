@@ -23,36 +23,36 @@ sndData.source = nodeId;
 sndData.d32[0] = 0;
 
 var ushort pai = 0;
+var ubyte cont = 0;
+var ubyte seq = 0;
+
+if nodeId == 11 then
+        await 1s;
+        pai = 1;
+        sndData.type = BROAD;
+        sndData.target = BROADCAST;
+        sndData.d8[0] = 0;
+        stat = qPut(sndData);
+else
+        recData = await RECEIVE(BROAD);
+        cont = recData.d8[0];
+        recData.d8[0] = recData.d8[0] + 1;
+        pai = recData.source;
+        recData.source = nodeId;
+        stat = qPut(recData);
+end
 
 par do
-        loop do
-                if nodeId == 11 then
-                        pai = 1;
-                        sndData.type = BROAD;
-                        sndData.target = BROADCAST;
-                        emit SEND(sndData);
-                        await SEND_DONE;                
-                else
-                        recData = await RECEIVE;
-                        if recData.type == BROAD then
-                                pai = recData.source;
-                                sndData.type = BROAD;
-                                sndData.target = BROADCAST;
-                                emit SEND(sndData);
-                                await SEND_DONE;
-                        end
-                end
-        end
-with
+        await ((cont*500) + random()%200) ms;
         loop do
                 await 10s;
-                if pai != 0 then
-                        emit REQ_TEMP();
-                        tempData.d16[0] = await TEMP;
-                        tempData.type = DATA;
-                        tempData.target = pai;
-                        stat = qPut(tempData);
-                end
+                emit REQ_TEMP();
+                tempData.d8[0] = seq;
+                seq = seq + 1;
+                tempData.d16[0] = await TEMP;
+                tempData.type = DATA;
+                tempData.target = pai;
+                stat = qPut(tempData);
         end
 with
         loop do
@@ -62,15 +62,21 @@ with
         end
 with
         loop do
+                await Q_READY;
                 loop do
                         if qSize() != 0 then
                                 stat = qGet(msgRadio);
-                                emit SEND(msgRadio);
-                                await SEND_DONE;
+                                if(msgRadio.type == DATA) then
+                                        emit SEND_ACK(msgRadio);
+                                        await SEND_DONE_ACK;
+                                        await 50ms;
+                                else
+                                        emit SEND(msgRadio);
+                                        await SEND_DONE;
+                                end
                         else
                                 break;
                         end
                 end
-        await Q_READY;
         end
 end
