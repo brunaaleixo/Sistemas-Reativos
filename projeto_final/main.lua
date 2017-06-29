@@ -23,7 +23,7 @@ function initializeJoystick()
       elseif topic == "right" then
          joystick.rotation = tonumber(msg)
       elseif topic == "blocked" then
-         if msg == "true" then
+         if tonumber(msg) == 1  then
             drawBlock = true
             ACCELERATION = 0
          else

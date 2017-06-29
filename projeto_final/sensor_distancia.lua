@@ -25,9 +25,12 @@ function init()
 			if (self.time_end - self.time_start) < 0 then
 			else
 				local distance_cm = (self.time_end - self.time_start) / 29.4 / 2;
-				if distance_cm ~= 0 then
+				if distance_cm < 12 then
 					print("Distancia:   "..distance_cm)
-				end
+                    client:publish("blocked", 1, 0, 0)
+                else
+                    client:publish("blocked", 0, 0, 0)
+                end
 			end
 		else
 			return;

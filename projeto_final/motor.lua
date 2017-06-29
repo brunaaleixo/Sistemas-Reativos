@@ -1,4 +1,4 @@
-isBlocked = false
+isBlocked = 0 -- false
 
 local pwmMotorA = 1
 local pwmMotorB = 2
@@ -6,91 +6,164 @@ local dirMotorA = 3
 local dirMotorB = 4
 
 local dirForwardA = 1
-local dirForwardB = 0
+local dirForwardB = 1
 local dirBackwardA = 0
-local dirBackwardB = 1
+local dirBackwardB = 0
+
+accelerationA = 1000
+accelerationB = 1000
+
+accelerationFactor = 0
+deaccelerationFactor = 0
+turnRightFactor = 0
+turnLeftFactor = 0
 
 local function parseMsg(client, topic, message)
    print(topic)
+   local intensity = tonumber(message)
+   print(intensity)
+
    if topic == "up" then
-      forward(tonumber(message))
+      accelerate(intensity)
+
    elseif topic == "down" then
-      backward(tonumber(message))
+      deaccelerate(intensity)
+
    elseif topic == "left" then
-      turnLeft(tonumber(message))
+      turnLeft(intensity)
+
    elseif topic == "right" then
-      turnRight(tonumber(message))
+      turnRight(intensity)
+      
+   elseif topic == "blocked" then
+       handleDistanceSensor(intensity)
    end
 end
 
-local function checkSurroundings()
-   if isBlocked then
-      publish("blocked", "true")
-   end
-   publish("blocked", "false")
+function handleDistanceSensor(newState) 
+    if (isBlocked == 0 and newState == 1) then
+        pwm.stop(pwmMotorA)
+        pwm.stop(pwmMotorB)
+    elseif (isBlocked == 1 and newState == 0) then
+        accelerationA = 1000
+        accelerationB = 1000
+        pwm.setup(pwmMotorA, accelerationA, 512)
+        pwm.setup(pwmMotorB, accelerationB, 512)
+        pwm.start(pwmMotorA)
+        pwm.start(pwmMotorB)
+    end
+    
+    isBlocked = newState
 end
 
 function carSetup()
    client:on("message", parseMsg)
+
    -- movements
    client:subscribe("up", 0)
    client:subscribe("down", 0)
    client:subscribe("left", 0)
    client:subscribe("right", 0)
+
    -- signal love that car is blocked
    client:subscribe("blocked", 0)
---   tmr.create(410, tmr.ALARM_AUTO, checkSurroundings)
-   pwm.setup(pwmMotorA, 100, 512)
-   pwm.setup(pwmMotorB, 100, 512)
+
+   --   tmr.create(410, tmr.ALARM_AUTO, checkSurroundings)
+
+   pwm.setup(pwmMotorA, accelerationA, 512)
+   pwm.setup(pwmMotorB, accelerationB, 512)
+
    gpio.mode(dirMotorA, gpio.INPUT)
    gpio.mode(dirMotorB, gpio.INPUT)
+
    gpio.write(dirMotorA, dirForwardA)
    gpio.write(dirMotorB, dirForwardB)
-end
-
-function setup()
-   dofile("mqtt.lua")
---   dofile("hcsr04.lua")
-end
-
-local function chg_direction(dirMotor)
-   gpio.write(dirMotor, gpio.read(dirMotor) == 0 and 1 or 0)
-end
-
-local function get_direction(dirMotor)
-   return gpio.read(dirMotor)
-end
-
-function forward(v)
-   print("forward")
-   -- pwm logic to move forward
-   if get_direction(dirMotorA) == dirBackwardA then
-      chg_direction(dirMotorA)
-   end
-   if get_direction(dirMotorB) == dirBackwardB then
-      chg_direction(dirMotorB)
-   end
 
    pwm.start(pwmMotorA)
    pwm.start(pwmMotorB)
 end
 
-function backward(v)
-   -- pwm logic to move backward
-   if get_direction(dirMotorA) == dirForwardA then
-      chg_direction(dirMotorA)
-   end
-   if get_direction(dirMotorA) == dirForwardB then
-      chg_direction(dirMotorB)
-   end
+
+function setup()
+   dofile("mqtt.lua")
+   --   dofile("sensor_distancia.lua")
 end
 
-function turnLeft(v)
+
+function slowDown(factor, acceleration) 
+   local acceleration = acceleration * (1 + factor)
+   acceleration = acceleration > 1000 and 1000 or acceleration
+
+   print(acceleration)
+   return acceleration
+end
+
+
+function speedUp(factor, acceleration) 
+   local acceleration = 1000 - factor*acceleration
+   acceleration = acceleration < 100 and 100 or acceleration
+
+   print(acceleration)
+   return acceleration
+end
+
+
+function speedUpIf(condition, factor) 
+    if (condition) then
+     accelerationA = speedUp(factor, accelerationA)
+     accelerationB = speedUp(factor, accelerationB)
+   else 
+     accelerationA = slowDown(factor, accelerationA)
+     accelerationB = slowDown(factor, accelerationB)  
+   end
+   
+   pwm.setclock(pwmMotorA, accelerationA)
+   pwm.setclock(pwmMotorB, accelerationB)
+end
+
+
+function accelerate(factor)
+   print("accelerate")
+
+   speedUpIf(factor > accelerationFactor, factor)
+   accelerationFactor = factor
+end
+
+
+function deaccelerate(factor)
+   -- pwm logic to move deaccelerate
+   print("slowdown")
+
+   speedUpIf(factor < deaccelerationFactor, factor)
+   deaccelerationFactor = factor
+end
+
+
+function turnLeft(factor)
    -- pwm logic to turn left
-   pwm.stop(pwmMotorB)
+   if (factor > turnLeftFactor) then
+     accelerationB = slowDown(factor, accelerationB)
+   else 
+     accelerationB = speedUp(factor, accelerationB)
+   end
+   turnRightFactor = 0
+   turnLeftFactor = factor
+  
+   pwm.setclock(pwmMotorB, accelerationB)
 end
 
-function turnRight(v)
+
+
+function turnRight(factor)
    -- pwm logic to turn right
-   pwm.stop(pwmMotorA)
+   if (factor > turnRightFactor) then
+     accelerationA = slowDown(factor, accelerationA)
+   else 
+     accelerationA = speedUp(factor, accelerationA)
+   end
+   turnLeftFactor = 0
+   turnRightFactor = factor
+   
+   pwm.setclock(pwmMotorA, accelerationA)
 end
+
