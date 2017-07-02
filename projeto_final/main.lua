@@ -110,9 +110,6 @@ function love.draw()
    end
 
    love.graphics.draw(carImage, car.x, car.y, math.rad(car.rotation), 0.5)
-   if isBlocked then
-      love.graphics.draw(stop, car.x, car.y + 75, math.rad(car.rotation), 0.5)
-   end
 end
 
 function love.load()
@@ -122,7 +119,6 @@ function love.load()
    -- Carrega as imagens
    road = love.graphics.newImage("road.png")
    carImage = love.graphics.newImage("car.png")
-   stop = love.graphics.newImage("stop.png")
 
    -- Inicializa o carro no centro da tela
    initializeCar()
