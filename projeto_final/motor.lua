@@ -10,34 +10,27 @@ local dirForwardB = 0
 local dirBackwardA = 1
 local dirBackwardB = 1
 
-local dutyA = 525
+local dutyA = 525 -- 0.6140
 local dutyB = 855
 
 
-accelerationA = 1000
-accelerationB = 1000
-
-accelerationFactor = 0
-deaccelerationFactor = 0
-turnRightFactor = 0
-turnLeftFactor = 0
+local accelerationA = 750
+local accelerationB = 750
 
 local function parseMsg(client, topic, message)
-   print(topic)
    local intensity = tonumber(message)
-   print(intensity)
 
-   if topic == "up" then
-      accelerate(intensity)
+   if topic == "up" and intensity >= 0.6 then
+      accelerate()
 
-   elseif topic == "down" then
-      deaccelerate(intensity)
+   elseif topic == "down" and intensity >= 0.6 then
+      deaccelerate()
 
-   elseif topic == "left" then
-      turnLeft(intensity)
+   elseif topic == "left" and intensity >= 0.6 then
+      turnLeft()
 
-   elseif topic == "right" then
-      turnRight(intensity)
+   elseif topic == "right" and intensity >= 0.6 then
+      turnRight()
 
    elseif topic == "blocked" then
       handleDistanceSensor(intensity)
@@ -49,10 +42,10 @@ function handleDistanceSensor(newState)
       pwm.stop(pwmMotorA)
       pwm.stop(pwmMotorB)
    elseif (isBlocked == 1 and newState == 0) then
-      accelerationA = 1000
-      accelerationB = 1000
-      pwm.setup(pwmMotorA, accelerationA, 512)
-      pwm.setup(pwmMotorB, accelerationB, 512)
+      accelerationA = 750
+      accelerationB = 750
+      pwm.setup(pwmMotorA, accelerationA, dutyA)
+      pwm.setup(pwmMotorB, accelerationB, dutyB)
       pwm.start(pwmMotorA)
       pwm.start(pwmMotorB)
    end
@@ -72,25 +65,26 @@ function carSetup()
    -- signal love that car is blocked
    client:subscribe("blocked", 0)
 
-   --   tmr.create(410, tmr.ALARM_AUTO, checkSurroundings)
+   client:subscribe("vA" ,0)
+   client:subscribe("vB", 0)
 
    pwm.setup(pwmMotorA, accelerationA, dutyA)
    pwm.setup(pwmMotorB, accelerationB, dutyB)
 
    gpio.mode(dirMotorA, gpio.INPUT)
    gpio.mode(dirMotorB, gpio.INPUT)
-   
+
    countA = 0
    countB = 0
-   
+
    gpio.mode(5, gpio.INT)
    gpio.mode(6, gpio.INT)
-   
+
    function contaA(l, v)
-     countA = countA + 1
+      countA = countA + 1
    end
    function contaB(l, v)
-    countB = countB + 1
+      countB = countB + 1
    end
 
    gpio.trig(6, "down", contaA)
@@ -101,101 +95,34 @@ function carSetup()
 
    pwm.start(pwmMotorA)
    pwm.start(pwmMotorB)
-   
-   tmr.create():alarm(5000, tmr.ALARM_AUTO, function() print(countB) countB = 0 end)
-   tmr.create():alarm(5000, tmr.ALARM_AUTO, function() print(countA) countA = 0 end) 
+
+   tmr.create():alarm(5000, tmr.ALARM_AUTO, function() client:publish("vB", countB, 0, 0) countB = 0 end)
+   tmr.create():alarm(5000, tmr.ALARM_AUTO, function() client:publish("vA", countA, 0, 0) countA = 0 end)
 end
 
 
 function setup()
    dofile("mqtt.lua")
-   --   dofile("sensor_distancia.lua")
+   dofile("sensor_distancia.lua")
 end
 
-
-function slowDown(factor, acceleration) 
-   local acceleration = acceleration * (1 + factor)
-   acceleration = acceleration > 1000 and 1000 or acceleration
-
-   print(acceleration)
-   return acceleration
+function accelerate()
+   pwm.setduty(pwmMotorA, 621)
+   pwm.setduty(pwmMotorB, 1010)
 end
 
-
-function speedUp(factor, acceleration)
-   local acceleration = 1000 - factor*acceleration
-   acceleration = acceleration < 100 and 100 or acceleration
-
-   print(acceleration)
-   return acceleration
-end
-
-
-function speedUpIf(condition, factor)
-   prevAccelerationA = accelerationA
-   prevAccelerationB = accelerationB
-
-   if (condition) then
-      accelerationA = speedUp(factor, accelerationA)
-      accelerationB = speedUp(factor, accelerationB)
-   else
-      accelerationA = slowDown(factor, accelerationA)
-      accelerationB = slowDown(factor, accelerationB)
-   end
-
-   pwm.setclock(pwmMotorA, accelerationA)
-   pwm.setclock(pwmMotorB, accelerationB)
-   
-   -- aumento unitario na velocidade -> diminui em 0.02% a frequencia de rotacao de A e aumenta 0.02% a frequencia de rotacao de 2
-   dutyA = dutyA * (1 + (accelerationA-prevAccelerationA)*0.0002)
-   dutyB = dutyB * (1 - (accelerationA-prevAccelerationA)*0.0002)
+function deaccelerate()
    pwm.setduty(pwmMotorA, dutyA)
-   pwm.setduty(pwmMotorA, dutyB)
+   pwm.setduty(pwmMotorB, dutyB)
 end
 
-
-function accelerate(factor)
-   print("accelerate")
-
-   speedUpIf(factor > accelerationFactor, factor)
-   accelerationFactor = factor
+function turnRight()
+   pwm.setduty(pwmMotorA, dutyA)
+   pwm.setduty(pwmMotorB, pwmMotorB - 200)
 end
 
-
-function deaccelerate(factor)
-   -- pwm logic to move deaccelerate
-   print("slowdown")
-
-   speedUpIf(factor < deaccelerationFactor, factor)
-   deaccelerationFactor = factor
-end
-
-
-function turnLeft(factor)
-   -- pwm logic to turn left
-   if (factor > turnLeftFactor) then
-      accelerationB = slowDown(factor, accelerationB)
-   else
-      accelerationB = speedUp(factor, accelerationB)
-   end
-   turnRightFactor = 0
-   turnLeftFactor = factor
-
-   pwm.setclock(pwmMotorB, accelerationB)
-end
-
-
-
-function turnRight(factor)
-   -- pwm logic to turn right
-   if (factor > turnRightFactor) then
-      accelerationA = slowDown(factor, accelerationA)
-   else
-      accelerationA = speedUp(factor, accelerationA)
-   end
-   turnLeftFactor = 0
-   turnRightFactor = factor
-
-   pwm.setclock(pwmMotorA, accelerationA)
+function turnLeft()
+   pwm.setduty(pwmMotorB, dutyB)
+   pwm.setduty(pwmMotorA, pwmMotorA - 200)
 end
 

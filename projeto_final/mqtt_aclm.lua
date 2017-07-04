@@ -8,7 +8,7 @@ end
 
 local function conmqtt(tmr)
    if not hasconnected then
-      print(client:connect("192.168.0.41", 1883, 0))
+      print(client:connect("192.168.123.112", 1883, 0))
    else
       tmr:stop()
       dofile("aclm.lua")
@@ -17,7 +17,7 @@ end
 
 local function initStation()
    wifi.setmode(wifi.STATION)
-   wifi.sta.config("analar_arris", "1234567890")
+   wifi.sta.config("PCT", "p35e97d72r29o")
    tmr.create():alarm(200, tmr.ALARM_AUTO, station)
 end
 
